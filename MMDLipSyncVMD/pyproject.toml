@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mmd-lip-sync-vmd"
+version = "0.1.0"
+description = "Tools for generating MMD lip-sync VMD motion data."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = { text = "MIT" }
+authors = [
+  { name = "tmiyo" }
+]
+dependencies = [
+  "faster-whisper>=1.1.0",
+  "librosa>=0.11.0",
+  "numpy>=2.0.0",
+  "pandas>=2.2.0",
+  "pykakasi>=2.3.0",
+]
+
+[project.scripts]
+mmd-lip-sync-vmd = "mmd_lip_sync_vmd.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mmd_lip_sync_vmd"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

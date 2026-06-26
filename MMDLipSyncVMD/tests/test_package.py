@@ -1,0 +1,213 @@
+from mmd_lip_sync_vmd import __version__
+from types import SimpleNamespace
+
+import pytest
+
+import mmd_lip_sync_vmd.detector as detector
+from mmd_lip_sync_vmd.detector import (
+    VOWELS,
+    VowelDetection,
+    detect_vowels,
+    hiragana_to_vowels,
+    insert_silence_frames,
+    merge_consecutive_vowels,
+    smooth_detections,
+    text_to_hiragana,
+    text_to_vowels,
+    write_csv,
+)
+
+
+def test_version() -> None:
+    assert __version__ == "0.1.0"
+
+
+def test_text_to_hiragana_converts_japanese_text() -> None:
+    hiragana = text_to_hiragana("歌う")
+
+    assert hiragana == "うたう"
+
+
+def test_hiragana_to_vowels_maps_kana_to_supported_vowels() -> None:
+    vowels = hiragana_to_vowels("あいうえおんっきゃー")
+
+    assert vowels == ["A", "I", "U", "E", "O", "I", "A", "A"]
+    assert set(vowels).issubset(VOWELS)
+
+
+def test_text_to_vowels_converts_recognized_text_to_vowels(monkeypatch) -> None:
+    monkeypatch.setattr(detector, "text_to_hiragana", lambda text: "てすと")
+
+    assert text_to_vowels("テスト") == ["E", "U", "O"]
+
+
+def test_detect_vowels_uses_whisper_word_timestamps(monkeypatch, tmp_path) -> None:
+    input_wav = tmp_path / "vocal.wav"
+    input_wav.write_bytes(b"")
+    transcribe_calls = []
+
+    class FakeWhisperModel:
+        def __init__(self, model_size_or_path, *, device, compute_type):
+            assert model_size_or_path == "tiny"
+            assert device == "cpu"
+            assert compute_type == "int8"
+
+        def transcribe(self, wav_path, **kwargs):
+            transcribe_calls.append((wav_path, kwargs))
+            return (
+                [
+                    SimpleNamespace(
+                        start=0.0,
+                        end=1.0,
+                        text="unused",
+                        words=[
+                            SimpleNamespace(
+                                start=0.2,
+                                end=0.8,
+                                word="あい",
+                                probability=0.75,
+                            )
+                        ],
+                    )
+                ],
+                SimpleNamespace(),
+            )
+
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "faster_whisper",
+        SimpleNamespace(WhisperModel=FakeWhisperModel),
+    )
+
+    assert detect_vowels(
+        input_wav,
+        model_size_or_path="tiny",
+        device="cpu",
+        compute_type="int8",
+    ) == [
+        VowelDetection(time_sec=0.2, vowel="A", confidence=0.75),
+        VowelDetection(time_sec=0.5, vowel="I", confidence=0.75),
+    ]
+    assert transcribe_calls == [
+        (
+            str(input_wav),
+            {
+                "language": "ja",
+                "task": "transcribe",
+                "word_timestamps": True,
+            },
+        )
+    ]
+
+
+def test_insert_silence_frames_adds_close_morphs_between_detections() -> None:
+    detections = [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
+        VowelDetection(time_sec=0.2, vowel="I", confidence=0.8),
+    ]
+
+    with_silence = insert_silence_frames(
+        detections,
+        silence_threshold_sec=0.1,
+        close_morph="close",
+    )
+
+    assert with_silence == [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
+        VowelDetection(time_sec=0.0333, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.0667, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.1, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.1333, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.1667, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.2, vowel="I", confidence=0.8),
+    ]
+
+
+def test_insert_silence_frames_skips_short_gaps() -> None:
+    detections = [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
+        VowelDetection(time_sec=0.08, vowel="I", confidence=0.8),
+    ]
+
+    assert insert_silence_frames(detections, silence_threshold_sec=0.1) == detections
+
+
+def test_insert_silence_frames_rejects_negative_threshold() -> None:
+    with pytest.raises(ValueError, match="silence_threshold_sec"):
+        insert_silence_frames([], silence_threshold_sec=-0.1)
+
+
+def test_merge_consecutive_vowels_keeps_highest_confidence_in_run() -> None:
+    detections = [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
+        VowelDetection(time_sec=0.1, vowel="A", confidence=0.9),
+        VowelDetection(time_sec=0.2, vowel="I", confidence=0.5),
+    ]
+
+    assert merge_consecutive_vowels(detections) == [
+        VowelDetection(time_sec=0.1, vowel="A", confidence=0.9),
+        VowelDetection(time_sec=0.2, vowel="I", confidence=0.5),
+    ]
+
+
+def test_merge_consecutive_vowels_preserves_separate_runs() -> None:
+    detections = [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
+        VowelDetection(time_sec=0.1, vowel="I", confidence=0.5),
+        VowelDetection(time_sec=0.2, vowel="A", confidence=0.9),
+    ]
+
+    assert merge_consecutive_vowels(detections) == detections
+
+
+def test_merge_consecutive_vowels_preserves_close_morph_runs() -> None:
+    detections = [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
+        VowelDetection(time_sec=0.1, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.2, vowel="close", confidence=0.8),
+        VowelDetection(time_sec=0.3, vowel="I", confidence=0.7),
+    ]
+
+    assert merge_consecutive_vowels(detections) == [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
+        VowelDetection(time_sec=0.1, vowel="close", confidence=1.0),
+        VowelDetection(time_sec=0.3, vowel="I", confidence=0.7),
+    ]
+
+
+def test_write_csv_uses_required_columns(tmp_path) -> None:
+    output_path = tmp_path / "vowels.csv"
+    write_csv(
+        [
+            VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
+            VowelDetection(time_sec=0.04, vowel="I", confidence=0.8),
+        ],
+        output_path,
+    )
+
+    assert output_path.read_text().splitlines() == [
+        "time_sec,vowel,confidence",
+        "0.0,A,0.9",
+        "0.04,I,0.8",
+    ]
+
+
+def test_smooth_detections_uses_majority_vowel_and_average_confidence() -> None:
+    detections = [
+        VowelDetection(time_sec=0.0, vowel="A", confidence=0.6),
+        VowelDetection(time_sec=0.1, vowel="I", confidence=0.9),
+        VowelDetection(time_sec=0.2, vowel="A", confidence=0.3),
+    ]
+
+    smoothed = smooth_detections(detections, window_size=3)
+
+    assert smoothed[1] == VowelDetection(
+        time_sec=0.1,
+        vowel="A",
+        confidence=0.6,
+    )
+
+
+def test_smooth_detections_rejects_invalid_window_size() -> None:
+    with pytest.raises(ValueError, match="window_size"):
+        smooth_detections([], window_size=0)
