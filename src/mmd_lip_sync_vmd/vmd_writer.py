@@ -34,14 +34,14 @@ def _frame_number(time_sec: float) -> int:
 def _morph_name(
     detection: VowelDetection,
     close_morph: str,
-) -> str | None:
-    if detection.vowel in VOWEL_TO_MORPH:
+) -> str | None:    if detection.vowel in VOWEL_TO_MORPH:
         return VOWEL_TO_MORPH[detection.vowel]
 
     if detection.vowel == close_morph:
         return close_morph
 
-return None
+    return None
+
 
 def build_vmd_bytes(
     detections: list[VowelDetection],
@@ -59,7 +59,6 @@ def build_vmd_bytes(
     # ボーンキーフレーム数
     data.extend(struct.pack("<I", 0))
 
-    # 母音→モーフへ変換
     source_keyframes = [
         (
             morph_name,
@@ -77,7 +76,6 @@ def build_vmd_bytes(
         if index + 1 < len(source_keyframes):
             next_frame_number = source_keyframes[index + 1][1]
 
-            # モーフを3フレーム程度保持
             reset_frame_number = max(
                 frame_number + 3,
                 next_frame_number - 1,
@@ -90,9 +88,7 @@ def build_vmd_bytes(
                 (morph_name, frame_number, weight),
                 (morph_name, reset_frame_number, 0.0),
             ]
-        )
-
-    # モーフキーフレーム数
+        )    # モーフキーフレーム数
     data.extend(struct.pack("<I", len(morph_keyframes)))
 
     for morph_name, frame_number, weight in morph_keyframes:
@@ -106,7 +102,8 @@ def build_vmd_bytes(
     data.extend(struct.pack("<I", 0))
     data.extend(struct.pack("<I", 0))
 
-return bytes(data)
+    return bytes(data)
+
 
 def write_vmd(
     detections: list[VowelDetection],
