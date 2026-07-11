@@ -136,6 +136,11 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
         model_name_jp = _read_pmx_text(f, encoding)
         model_name_en = _read_pmx_text(f, encoding)
 
+        comment_jp = _read_pmx_text(f, encoding)
+        comment_en = _read_pmx_text(f, encoding)
+
+        vertex_count = _skip_vertices(f, header)
+
         return PMXModel(
             header=header,
             model_name_jp=model_name_jp,
