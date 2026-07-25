@@ -23,3 +23,10 @@ dist/
 .idea/
 Thumbs.db
 .DS_Store
+sample/Teto Red(NCHL).pmx
+
+# Sample assets
+sample/*.pmx
+sample/*.vmd
+sample/*.csv
+sample/*.wav
