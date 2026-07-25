@@ -34,7 +34,8 @@ def _frame_number(time_sec: float) -> int:
 def _morph_name(
     detection: VowelDetection,
     close_morph: str,
-) -> str | None:    if detection.vowel in VOWEL_TO_MORPH:
+) -> str | None:
+    if detection.vowel in VOWEL_TO_MORPH:
         return VOWEL_TO_MORPH[detection.vowel]
 
     if detection.vowel == close_morph:
@@ -63,7 +64,7 @@ def build_vmd_bytes(
         (
             morph_name,
             _frame_number(detection.time_sec),
-            min(float(detection.confidence), 0.6),
+            float(detection.confidence),
         )
         for detection in detections
         if (morph_name := _morph_name(detection, close_morph)) is not None
@@ -77,11 +78,11 @@ def build_vmd_bytes(
             next_frame_number = source_keyframes[index + 1][1]
 
             reset_frame_number = max(
-                frame_number + 3,
+                frame_number + 1,
                 next_frame_number - 1,
             )
         else:
-            reset_frame_number = frame_number + 3
+            reset_frame_number = frame_number + 1
 
         morph_keyframes.extend(
             [

@@ -277,4 +277,4 @@ def write_csv(detections: list[VowelDetection], csv_path: str | Path) -> None:
         for detection in detections
     ]
     dataframe = pd.DataFrame(rows, columns=["time_sec", "vowel", "confidence"])
-    dataframe.to_csv(Path(csv_path), index=False, encoding="utf-8-sig")
+    dataframe.to_csv(Path(csv_path), index=False, encoding="utf-8")
