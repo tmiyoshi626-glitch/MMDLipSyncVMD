@@ -51,6 +51,10 @@ def _read_index(f, size: int, signed: bool = True) -> int:
 
     return struct.unpack(fmt, f.read(size))[0]
 
+# TODO(Version2):
+# Read and skip all vertex records according to the PMX 2.0 specification.
+# The current implementation only reads the vertex count.
+
 def _skip_vertices(f, header: PMXHeader) -> int:
     """Read the vertex count (temporary implementation)."""
 
