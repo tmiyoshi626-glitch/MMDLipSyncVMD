@@ -108,7 +108,7 @@ class PMXModel:
     header: PMXHeader
     model_name_jp: str
     model_name_en: str
-
+    vertex_count: int
 
 def read_pmx_model(pmx_path: Path) -> PMXModel:
     """Read PMX header and model names."""
@@ -149,4 +149,7 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             header=header,
             model_name_jp=model_name_jp,
             model_name_en=model_name_en,
+            vertex_count=vertex_count,
         )
+
+    def _skip_vertices(...):
