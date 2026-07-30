@@ -22,6 +22,10 @@ class PMXHeader:
     morph_index_size: int
     rigid_body_index_size: int
 
+def _read_uint32(f):
+    """4バイトの符号なし整数をリトルエンディアンで読み込む。"""
+    return struct.unpack("<I", f.read(4))[0]
+
 def _read_pmx_text(f, encoding: str) -> str:
     """Read one PMX text field."""
 
@@ -152,4 +156,7 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             vertex_count=vertex_count,
         )
 
-    def _skip_vertices(...):
+def _skip_vertices(f, header):
+    """頂点数を読み取り、返す。"""
+    vertex_count = _read_uint32(f)
+    return vertex_count  
