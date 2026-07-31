@@ -55,6 +55,27 @@ def _read_index(f, size: int, signed: bool = True) -> int:
 
     return struct.unpack(fmt, f.read(size))[0]
 
+def _skip_vertex_weight(f, weight_type: int, bone_index_size: int) -> None:
+    """Skip one PMX vertex weight block."""
+
+    if weight_type == 0:  # BDEF1
+        f.seek(bone_index_size, 1)
+
+    elif weight_type == 1:  # BDEF2
+        f.seek(bone_index_size * 2 + 4, 1)
+
+    elif weight_type == 2:  # BDEF4
+        f.seek(bone_index_size * 4 + 16, 1)
+
+    elif weight_type == 3:  # SDEF
+        f.seek(bone_index_size * 2 + 40, 1)
+
+    elif weight_type == 4:  # QDEF
+        f.seek(bone_index_size * 4 + 16, 1)
+
+    else:
+        raise ValueError(f"Unknown vertex weight type: {weight_type}")
+
 # TODO(Version2):
 # Read and skip all vertex records according to the PMX 2.0 specification.
 # The current implementation only reads the vertex count.
@@ -62,7 +83,7 @@ def _read_index(f, size: int, signed: bool = True) -> int:
 
 
 def _skip_vertices(f, header: PMXHeader) -> int:
-    """Read the vertex count (temporary implementation)."""
+     """Read and skip all PMX vertex records."""
 
     vertex_count = _read_uint32(f)
 
