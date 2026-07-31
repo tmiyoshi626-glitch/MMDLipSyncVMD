@@ -59,14 +59,32 @@ def _read_index(f, size: int, signed: bool = True) -> int:
 # Read and skip all vertex records according to the PMX 2.0 specification.
 # The current implementation only reads the vertex count.
 
+
+
 def _skip_vertices(f, header: PMXHeader) -> int:
     """Read the vertex count (temporary implementation)."""
 
-    vertex_count = struct.unpack("<i", f.read(4))[0]
-
-    print(f"Vertex count = {vertex_count}")
+    vertex_count = _read_uint32(f)
 
     return vertex_count
+
+
+def _skip_faces(f, header: PMXHeader) -> int:
+    """Read and skip face indices."""
+
+    face_index_count = _read_uint32(f)
+
+    f.seek(
+        face_index_count * header.vertex_index_size,
+        1,
+    )
+
+    return face_index_count
+
+
+def read_pmx_header(pmx_path: Path) -> PMXHeader:
+    ...
+
 
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
@@ -149,6 +167,8 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
 
         vertex_count = _skip_vertices(f, header)
 
+
+
         return PMXModel(
             header=header,
             model_name_jp=model_name_jp,
@@ -156,7 +176,3 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             vertex_count=vertex_count,
         )
 
-def _skip_vertices(f, header):
-    """頂点数を読み取り、返す。"""
-    vertex_count = _read_uint32(f)
-    return vertex_count  
