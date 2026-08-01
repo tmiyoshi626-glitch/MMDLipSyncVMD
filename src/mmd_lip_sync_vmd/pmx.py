@@ -81,9 +81,8 @@ def _skip_vertex_weight(f, weight_type: int, bone_index_size: int) -> None:
 # The current implementation only reads the vertex count.
 
 
-
 def _skip_vertices(f, header: PMXHeader) -> int:
-     """Read and skip all PMX vertex records."""
+    """Read and skip all PMX vertex records."""
 
     vertex_count = _read_uint32(f)
 
