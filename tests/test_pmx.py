@@ -15,6 +15,8 @@ def test_read_pmx_model():
     assert model.header.version == 2.0
     assert model.model_name_jp != ""
     assert model.model_name_en is not None
+    assert model.vertex_count > 0
+    assert model.face_index_count > 0
 
 # TODO:
 # Add tests for faces, textures, materials, bones and morphs.

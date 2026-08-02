@@ -103,10 +103,6 @@ def _skip_faces(f, header: PMXHeader) -> int:
 
 
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
-    ...
-
-
-def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
 
     with pmx_path.open("rb") as f:
@@ -186,7 +182,7 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
         comment_en = _read_pmx_text(f, encoding)
 
         vertex_count = _skip_vertices(f, header)
-
+        face_index_count = _skip_faces(f, header)
 
 
         return PMXModel(
@@ -194,5 +190,13 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             model_name_jp=model_name_jp,
             model_name_en=model_name_en,
             vertex_count=vertex_count,
+            face_index_count=face_index_count,
         )
 
+@dataclass
+class PMXModel:
+    header: PMXHeader
+    model_name_jp: str
+    model_name_en: str
+    vertex_count: int
+    face_index_count: int
