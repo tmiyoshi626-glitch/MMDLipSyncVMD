@@ -80,11 +80,36 @@ def _skip_vertex_weight(f, weight_type: int, bone_index_size: int) -> None:
 # Read and skip all vertex records according to the PMX 2.0 specification.
 # The current implementation only reads the vertex count.
 
-
 def _skip_vertices(f, header: PMXHeader) -> int:
     """Read and skip all PMX vertex records."""
 
     vertex_count = _read_uint32(f)
+
+    for _ in range(vertex_count):
+        # position (3 floats)
+        f.seek(12, 1)
+
+        # normal (3 floats)
+        f.seek(12, 1)
+
+        # UV (2 floats)
+        f.seek(8, 1)
+
+        # additional UVs
+        f.seek(16 * header.additional_uvs, 1)
+
+        # weight type
+        weight_type = struct.unpack("<B", f.read(1))[0]
+
+        # weight data
+        _skip_vertex_weight(
+            f,
+            weight_type,
+            header.bone_index_size,
+        )
+
+        # edge scale
+        f.seek(4, 1)
 
     return vertex_count
 
@@ -101,6 +126,17 @@ def _skip_faces(f, header: PMXHeader) -> int:
 
     return face_index_count
 
+def _read_textures(f, encoding: str) -> list[str]:
+    """Read PMX texture names."""
+
+    texture_count = _read_uint32(f)
+
+    textures = []
+
+    for _ in range(texture_count):
+        textures.append(_read_pmx_text(f, encoding))
+
+    return textures
 
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
@@ -147,6 +183,8 @@ class PMXModel:
     model_name_jp: str
     model_name_en: str
     vertex_count: int
+    face_index_count: int
+    textures: list[str]
 
 def read_pmx_model(pmx_path: Path) -> PMXModel:
     """Read PMX header and model names."""
@@ -183,7 +221,7 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
 
         vertex_count = _skip_vertices(f, header)
         face_index_count = _skip_faces(f, header)
-
+        textures = _read_textures(f, encoding)
 
         return PMXModel(
             header=header,
@@ -191,12 +229,6 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             model_name_en=model_name_en,
             vertex_count=vertex_count,
             face_index_count=face_index_count,
+            textures=textures,
         )
 
-@dataclass
-class PMXModel:
-    header: PMXHeader
-    model_name_jp: str
-    model_name_en: str
-    vertex_count: int
-    face_index_count: int
