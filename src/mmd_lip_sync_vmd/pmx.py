@@ -55,6 +55,10 @@ def _read_index(f, size: int, signed: bool = True) -> int:
 
     return struct.unpack(fmt, f.read(size))[0]
 
+def _skip_bytes(f, size: int) -> None:
+    """Skip a fixed number of bytes."""
+    f.seek(size, 1)
+
 def _skip_vertex_weight(f, weight_type: int, bone_index_size: int) -> None:
     """Skip one PMX vertex weight block."""
 
@@ -138,6 +142,22 @@ def _read_textures(f, encoding: str) -> list[str]:
 
     return textures
 
+def _read_materials(f, header: PMXHeader, encoding: str) -> list[str]:
+    """Read PMX material names."""
+
+    material_count = _read_uint32(f)
+    materials: list[str] = []
+
+    for _ in range(material_count):
+        material_name_jp = _read_pmx_text(f, encoding)
+        _read_pmx_text(f, encoding)  # English name
+        materials.append(material_name_jp)
+
+        # TODO: Skip the remaining material data.
+        break
+
+    return materials
+
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
 
@@ -185,6 +205,7 @@ class PMXModel:
     vertex_count: int
     face_index_count: int
     textures: list[str]
+    materials: list[str]
 
 def read_pmx_model(pmx_path: Path) -> PMXModel:
     """Read PMX header and model names."""
@@ -230,5 +251,6 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             vertex_count=vertex_count,
             face_index_count=face_index_count,
             textures=textures,
+            materials=[],
         )
 
