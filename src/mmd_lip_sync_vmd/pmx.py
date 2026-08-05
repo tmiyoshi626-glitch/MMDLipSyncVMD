@@ -129,7 +129,51 @@ def _skip_faces(f, header: PMXHeader) -> int:
     )
 
     return face_index_count
+def _skip_material(f, header: PMXHeader) -> None:
+    """Skip remaining PMX material data after names."""
+    
+    # diffuse color
+    f.seek(16, 1)
 
+    # specular color
+    f.seek(12, 1)
+
+    # specular strength
+    f.seek(4, 1)
+
+    # ambient color
+    f.seek(12, 1)
+
+    # draw flags
+    f.seek(1, 1)
+
+    # edge color
+    f.seek(16, 1)
+
+    # edge size
+    f.seek(4, 1)
+
+    # texture index
+    _read_index(f, header.texture_index_size)
+
+    # sphere texture index
+    _read_index(f, header.texture_index_size)
+
+    # sphere mode
+    f.seek(1, 1)
+
+    # toon flag
+    f.seek(1, 1)
+
+    # toon texture index if not shared toon
+    # (temporary handling)
+    _read_index(f, header.texture_index_size)
+
+    # memo
+    _read_pmx_text(f, "UTF-8")
+
+    # face count
+    f.seek(4, 1)
 def _read_textures(f, encoding: str) -> list[str]:
     """Read PMX texture names."""
 
@@ -151,12 +195,13 @@ def _read_materials(f, header: PMXHeader, encoding: str) -> list[str]:
     for _ in range(material_count):
         material_name_jp = _read_pmx_text(f, encoding)
         _read_pmx_text(f, encoding)  # English name
+
         materials.append(material_name_jp)
 
-        # TODO: Skip the remaining material data.
-        break
+        _skip_material(f, header)
 
     return materials
+
 
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
@@ -243,7 +288,8 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
         vertex_count = _skip_vertices(f, header)
         face_index_count = _skip_faces(f, header)
         textures = _read_textures(f, encoding)
-
+        materials = _read_materials(f, header, encoding)
+        
         return PMXModel(
             header=header,
             model_name_jp=model_name_jp,
@@ -251,6 +297,6 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             vertex_count=vertex_count,
             face_index_count=face_index_count,
             textures=textures,
-            materials=[],
+            materials=materials,
         )
 
