@@ -202,6 +202,9 @@ def _read_materials(f, header: PMXHeader, encoding: str) -> list[str]:
 
     return materials
 
+def _read_bones(f) -> int:
+    """Read PMX bone count."""
+    return _read_uint32(f)
 
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
@@ -251,10 +254,11 @@ class PMXModel:
     face_index_count: int
     textures: list[str]
     materials: list[str]
+    bone_count: int
 
 def read_pmx_model(pmx_path: Path) -> PMXModel:
     """Read PMX header and model names."""
-
+    bone_count: int
     with pmx_path.open("rb") as f:
         magic = f.read(4)
         if magic != b"PMX ":
@@ -289,7 +293,8 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
         face_index_count = _skip_faces(f, header)
         textures = _read_textures(f, encoding)
         materials = _read_materials(f, header, encoding)
-        
+        bone_count = _read_bones(f)
+          
         return PMXModel(
             header=header,
             model_name_jp=model_name_jp,
@@ -298,5 +303,6 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             face_index_count=face_index_count,
             textures=textures,
             materials=materials,
+            bone_count=bone_count, 
         )
 
