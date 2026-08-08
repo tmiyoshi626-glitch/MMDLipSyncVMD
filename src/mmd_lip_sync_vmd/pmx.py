@@ -129,7 +129,7 @@ def _skip_faces(f, header: PMXHeader) -> int:
     )
 
     return face_index_count
-def _skip_material(f, header: PMXHeader) -> None:
+def _skip_material(f, header: PMXHeader, encoding: str) -> None:
     """Skip remaining PMX material data after names."""
     
     # diffuse color
@@ -162,15 +162,16 @@ def _skip_material(f, header: PMXHeader) -> None:
     # sphere mode
     f.seek(1, 1)
 
-    # toon flag
-    f.seek(1, 1)
-
-    # toon texture index if not shared toon
-    # (temporary handling)
-    _read_index(f, header.texture_index_size)
+    toon_flag = struct.unpack("<B", f.read(1))[0]
+    if toon_flag == 0:
+        _read_index(f, header.texture_index_size)
+    elif toon_flag == 1:
+        _skip_bytes(f, 1)
+    else:
+        raise ValueError(f"Unknown PMX toon flag: {toon_flag}")
 
     # memo
-    _read_pmx_text(f, "UTF-8")
+    _read_pmx_text(f, encoding)
 
     # face count
     f.seek(4, 1)
@@ -198,13 +199,95 @@ def _read_materials(f, header: PMXHeader, encoding: str) -> list[str]:
 
         materials.append(material_name_jp)
 
-        _skip_material(f, header)
+        _skip_material(f, header, encoding)
 
     return materials
 
-def _read_bones(f) -> int:
-    """Read PMX bone count."""
-    return _read_uint32(f)
+def _skip_bones(f, header: PMXHeader, encoding: str) -> int:
+    """Read and skip all PMX bone records."""
+
+    bone_count = _read_uint32(f)
+    for _ in range(bone_count):
+        _read_pmx_text(f, encoding)
+        _read_pmx_text(f, encoding)
+        _skip_bytes(f, 12)  # position
+        _read_index(f, header.bone_index_size)  # parent bone index
+        _skip_bytes(f, 4)  # transform level
+        flags = struct.unpack("<H", f.read(2))[0]
+
+        if flags & 0x0001:  # connection index
+            _read_index(f, header.bone_index_size)
+        else:  # connection position
+            _skip_bytes(f, 12)
+
+        if flags & (0x0100 | 0x0200):  # additional rotation or movement
+            _read_index(f, header.bone_index_size)
+            _skip_bytes(f, 4)
+
+        if flags & 0x0400:  # fixed axis
+            _skip_bytes(f, 12)
+
+        if flags & 0x0800:  # local axis
+            _skip_bytes(f, 24)
+
+        if flags & 0x2000:  # external parent transform
+            _skip_bytes(f, 4)
+
+        if flags & 0x0020:  # inverse kinematics
+            _read_index(f, header.bone_index_size)
+            _skip_bytes(f, 8)  # iterations and angle limit
+            link_count = _read_uint32(f)
+            for _ in range(link_count):
+                _read_index(f, header.bone_index_size)
+                has_limits = struct.unpack("<B", f.read(1))[0]
+                if has_limits:
+                    _skip_bytes(f, 24)
+
+    return bone_count
+
+
+def _skip_morph_offsets(
+    f,
+    header: PMXHeader,
+    morph_type: int,
+    offset_count: int,
+) -> None:
+    """Skip PMX 2.0 morph offsets for one morph."""
+
+    if morph_type == 0:  # group
+        offset_size = header.morph_index_size + 4
+    elif morph_type == 1:  # vertex
+        offset_size = header.vertex_index_size + 12
+    elif morph_type == 2:  # bone
+        offset_size = header.bone_index_size + 28
+    elif morph_type in (3, 4, 5, 6, 7):  # UV and additional UVs
+        offset_size = header.vertex_index_size + 16
+    elif morph_type == 8:  # material
+        offset_size = header.material_index_size + 113
+    else:
+        raise ValueError(f"Unsupported PMX 2.0 morph type: {morph_type}")
+
+    _skip_bytes(f, offset_size * offset_count)
+
+
+def _read_morph_names(
+    f,
+    header: PMXHeader,
+    encoding: str,
+) -> list[str]:
+    """Read local PMX morph names while skipping morph offsets."""
+
+    morph_count = _read_uint32(f)
+    morphs: list[str] = []
+    for _ in range(morph_count):
+        morphs.append(_read_pmx_text(f, encoding))
+        _read_pmx_text(f, encoding)  # global name
+        _skip_bytes(f, 1)  # handle panel
+        morph_type = struct.unpack("<B", f.read(1))[0]
+        offset_count = _read_uint32(f)
+        _skip_morph_offsets(f, header, morph_type, offset_count)
+
+    return morphs
 
 def read_pmx_header(pmx_path: Path) -> PMXHeader:
     """Read the PMX header."""
@@ -255,6 +338,7 @@ class PMXModel:
     textures: list[str]
     materials: list[str]
     bone_count: int
+    morphs: list[str]
 
 def read_pmx_model(pmx_path: Path) -> PMXModel:
     """Read PMX header and model names."""
@@ -293,7 +377,8 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
         face_index_count = _skip_faces(f, header)
         textures = _read_textures(f, encoding)
         materials = _read_materials(f, header, encoding)
-        bone_count = _read_bones(f)
+        bone_count = _skip_bones(f, header, encoding)
+        morphs = _read_morph_names(f, header, encoding)
           
         return PMXModel(
             header=header,
@@ -303,6 +388,7 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             face_index_count=face_index_count,
             textures=textures,
             materials=materials,
-            bone_count=bone_count, 
+            bone_count=bone_count,
+            morphs=morphs,
         )
 
