@@ -73,15 +73,23 @@ def _build_minimal_pmx(encoding: str = "utf-8") -> bytes:
     data.extend(struct.pack("<H", 0))  # bone flags
     data.extend(b"\x00" * 12)  # tail position
 
-    morphs = [("あ", 0), ("い", 1), ("う", 2), ("え", 3), ("お", 8), ("口閉じ", 0)]
+    morphs = [
+        ("あ", "A", 3, 0, 1),
+        ("い", "I", 3, 1, 1),
+        ("う", "U", 3, 2, 1),
+        ("え", "E", 3, 3, 1),
+        ("お", "O", 4, 8, 1),
+        ("口閉じ", "Close", 0, 0, 0),
+    ]
     data.extend(struct.pack("<I", len(morphs)))
-    for name, morph_type in morphs:
-        data.extend(_text(name, encoding))
-        data.extend(_text(name, encoding))
-        data.extend(b"\x03")  # mouth handle panel
+    for name_jp, name_en, panel, morph_type, offset_count in morphs:
+        data.extend(_text(name_jp, encoding))
+        data.extend(_text(name_en, encoding))
+        data.extend(bytes((panel,)))
         data.extend(bytes((morph_type,)))
-        data.extend(struct.pack("<I", 1))
-        data.extend(_morph_offset(morph_type))
+        data.extend(struct.pack("<I", offset_count))
+        for _ in range(offset_count):
+            data.extend(_morph_offset(morph_type))
 
     return bytes(data)
 

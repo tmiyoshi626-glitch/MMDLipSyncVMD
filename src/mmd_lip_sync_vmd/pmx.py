@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import struct
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -21,6 +21,17 @@ class PMXHeader:
     bone_index_size: int
     morph_index_size: int
     rigid_body_index_size: int
+
+
+@dataclass(frozen=True)
+class PMXMorph:
+    """PMX morph metadata used to identify model expressions."""
+
+    name_jp: str
+    name_en: str
+    panel: int
+    morph_type: int
+    offset_count: int
 
 def _read_uint32(f):
     """4バイトの符号なし整数をリトルエンディアンで読み込む。"""
@@ -270,21 +281,30 @@ def _skip_morph_offsets(
     _skip_bytes(f, offset_size * offset_count)
 
 
-def _read_morph_names(
+def _read_morphs(
     f,
     header: PMXHeader,
     encoding: str,
-) -> list[str]:
-    """Read local PMX morph names while skipping morph offsets."""
+) -> list[PMXMorph]:
+    """Read PMX morph metadata while skipping morph offsets."""
 
     morph_count = _read_uint32(f)
-    morphs: list[str] = []
+    morphs: list[PMXMorph] = []
     for _ in range(morph_count):
-        morphs.append(_read_pmx_text(f, encoding))
-        _read_pmx_text(f, encoding)  # global name
-        _skip_bytes(f, 1)  # handle panel
+        name_jp = _read_pmx_text(f, encoding)
+        name_en = _read_pmx_text(f, encoding)
+        panel = struct.unpack("<B", f.read(1))[0]
         morph_type = struct.unpack("<B", f.read(1))[0]
         offset_count = _read_uint32(f)
+        morphs.append(
+            PMXMorph(
+                name_jp=name_jp,
+                name_en=name_en,
+                panel=panel,
+                morph_type=morph_type,
+                offset_count=offset_count,
+            )
+        )
         _skip_morph_offsets(f, header, morph_type, offset_count)
 
     return morphs
@@ -339,6 +359,7 @@ class PMXModel:
     materials: list[str]
     bone_count: int
     morphs: list[str]
+    morph_details: list[PMXMorph] = field(default_factory=list)
 
 def read_pmx_model(pmx_path: Path) -> PMXModel:
     """Read PMX header and model names."""
@@ -378,7 +399,8 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
         textures = _read_textures(f, encoding)
         materials = _read_materials(f, header, encoding)
         bone_count = _skip_bones(f, header, encoding)
-        morphs = _read_morph_names(f, header, encoding)
+        morph_details = _read_morphs(f, header, encoding)
+        morphs = [morph.name_jp for morph in morph_details]
           
         return PMXModel(
             header=header,
@@ -390,5 +412,6 @@ def read_pmx_model(pmx_path: Path) -> PMXModel:
             materials=materials,
             bone_count=bone_count,
             morphs=morphs,
+            morph_details=morph_details,
         )
 
