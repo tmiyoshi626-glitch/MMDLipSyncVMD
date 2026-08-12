@@ -41,6 +41,42 @@ def test_text_to_vowels_converts_recognized_text_to_vowels(monkeypatch) -> None:
     assert text_to_vowels("テスト") == ["E", "U", "O"]
 
 
+def test_detect_vowels_ignores_zero_duration_whisper_words(monkeypatch, tmp_path) -> None:
+    input_wav = tmp_path / "vocal.wav"
+    input_wav.write_bytes(b"")
+
+    class FakeWhisperModel:
+        def __init__(self, model_size_or_path, *, device, compute_type):
+            pass
+
+        def transcribe(self, wav_path, **kwargs):
+            return ([SimpleNamespace(start=1.0, end=1.0, text="あ", words=[SimpleNamespace(start=1.0, end=1.0, word="あ", probability=0.9)])], SimpleNamespace())
+
+    monkeypatch.setitem(__import__("sys").modules, "faster_whisper", SimpleNamespace(WhisperModel=FakeWhisperModel))
+
+    monkeypatch.setattr(detector, "_is_audio_silent", lambda wav_path, start, end: False)
+    assert detect_vowels(input_wav, model_size_or_path="tiny", device="cpu", compute_type="int8") == []
+
+
+def test_detect_vowels_ignores_whisper_results_in_silence(monkeypatch, tmp_path) -> None:
+    input_wav = tmp_path / "vocal.wav"
+    input_wav.write_bytes(b"")
+
+    class FakeWhisperModel:
+        def __init__(self, model_size_or_path, *, device, compute_type):
+            pass
+
+        def transcribe(self, wav_path, **kwargs):
+            return ([SimpleNamespace(start=2.0, end=3.0, text="あ", words=[SimpleNamespace(start=2.0, end=3.0, word="あ", probability=0.9)])], SimpleNamespace())
+
+    monkeypatch.setitem(__import__("sys").modules, "faster_whisper", SimpleNamespace(WhisperModel=FakeWhisperModel))
+    monkeypatch.setattr(detector, "_is_audio_silent", lambda wav_path, start, end: True)
+
+    assert detect_vowels(input_wav, model_size_or_path="tiny", device="cpu", compute_type="int8") == []
+
+
+
+
 def test_detect_vowels_uses_whisper_word_timestamps(monkeypatch, tmp_path) -> None:
     input_wav = tmp_path / "vocal.wav"
     input_wav.write_bytes(b"")
@@ -79,6 +115,7 @@ def test_detect_vowels_uses_whisper_word_timestamps(monkeypatch, tmp_path) -> No
         SimpleNamespace(WhisperModel=FakeWhisperModel),
     )
 
+    monkeypatch.setattr(detector, "_is_audio_silent", lambda wav_path, start, end: False)
     assert detect_vowels(
         input_wav,
         model_size_or_path="tiny",

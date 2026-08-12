@@ -89,10 +89,10 @@ def _time_aligned_vowels(
     confidence: float | None,
 ) -> list[VowelDetection]:
     vowels = text_to_vowels(text)
-    if not vowels:
+    if not vowels or end <= start:
         return []
 
-    duration = max(0.0, end - start)
+    duration = end - start
     step = duration / len(vowels) if duration > 0 else 0.0
     return [
         VowelDetection(
@@ -124,6 +124,22 @@ def _iter_whisper_items(segment: Any) -> Iterable[tuple[str, float, float, float
     )
 
 
+def _is_audio_silent(wav_path: str | Path, start: float, end: float, threshold: float = 0.001) -> bool:
+    import librosa
+    import numpy as np
+
+    if end <= start:
+        return True
+    try:
+        y, _sr = librosa.load(str(wav_path), sr=None, mono=True, offset=start, duration=end - start)
+    except (OSError, EOFError, ValueError):
+        return False
+    if len(y) == 0:
+        return True
+    rms = float(np.sqrt(np.mean(y ** 2)))
+    return rms < threshold
+
+
 def detect_vowels(
     wav_path: str | Path,
     *,
@@ -150,6 +166,9 @@ def detect_vowels(
             print(f"{start:.2f} {end:.2f} {text} {confidence}")
 
             
+            if _is_audio_silent(wav_path, start, end):
+                continue
+
             detections.extend(
                 _time_aligned_vowels(
                     text=text,
