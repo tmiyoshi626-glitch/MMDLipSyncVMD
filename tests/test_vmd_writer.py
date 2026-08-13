@@ -111,6 +111,49 @@ def test_build_vmd_bytes_never_resets_before_next_frame() -> None:
     ]
 
 
+def test_build_vmd_bytes_uses_highest_confidence_vowel_per_frame() -> None:
+    data = build_vmd_bytes(
+        [
+            VowelDetection(time_sec=0.0, vowel="A", confidence=0.25),
+            VowelDetection(time_sec=0.01, vowel="I", confidence=0.75),
+        ]
+    )
+
+    assert _morph_keyframes(data) == [
+        (VOWEL_TO_MORPH["I"], 0, 0.75),
+        (VOWEL_TO_MORPH["I"], 1, 0.0),
+    ]
+
+
+def test_build_vmd_bytes_keeps_first_vowel_when_confidence_ties() -> None:
+    data = build_vmd_bytes(
+        [
+            VowelDetection(time_sec=0.0, vowel="A", confidence=0.75),
+            VowelDetection(time_sec=0.01, vowel="I", confidence=0.75),
+        ]
+    )
+
+    assert _morph_keyframes(data) == [
+        (VOWEL_TO_MORPH["A"], 0, 0.75),
+        (VOWEL_TO_MORPH["A"], 1, 0.0),
+    ]
+
+
+def test_build_vmd_bytes_uses_highest_confidence_close_morph_per_frame() -> None:
+    data = build_vmd_bytes(
+        [
+            VowelDetection(time_sec=0.0, vowel="A", confidence=0.75),
+            VowelDetection(time_sec=0.01, vowel="close", confidence=1.0),
+        ],
+        close_morph="close",
+    )
+
+    assert _morph_keyframes(data) == [
+        ("close", 0, 1.0),
+        ("close", 1, 0.0),
+    ]
+
+
 def test_write_vmd_creates_binary_file(tmp_path) -> None:
     output_path = tmp_path / "lip_sync.vmd"
 

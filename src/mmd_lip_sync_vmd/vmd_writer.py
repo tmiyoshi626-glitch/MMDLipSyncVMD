@@ -44,6 +44,31 @@ def _morph_name(
     return None
 
 
+def _select_one_morph_per_frame(
+    detections: list[VowelDetection],
+    close_morph: str,
+) -> list[tuple[str, int, float]]:
+    """Keep the highest-confidence mouth morph candidate for each VMD frame."""
+
+    selected: list[tuple[str, int, float]] = []
+    positions_by_frame: dict[int, int] = {}
+    for detection in detections:
+        morph_name = _morph_name(detection, close_morph)
+        if morph_name is None:
+            continue
+
+        frame_number = _frame_number(detection.time_sec)
+        candidate = (morph_name, frame_number, float(detection.confidence))
+        existing_position = positions_by_frame.get(frame_number)
+        if existing_position is None:
+            positions_by_frame[frame_number] = len(selected)
+            selected.append(candidate)
+        elif candidate[2] > selected[existing_position][2]:
+            selected[existing_position] = candidate
+
+    return selected
+
+
 def build_vmd_bytes(
     detections: list[VowelDetection],
     *,
@@ -60,15 +85,7 @@ def build_vmd_bytes(
     # ボーンキーフレーム数
     data.extend(struct.pack("<I", 0))
 
-    source_keyframes = [
-        (
-            morph_name,
-            _frame_number(detection.time_sec),
-            float(detection.confidence),
-        )
-        for detection in detections
-        if (morph_name := _morph_name(detection, close_morph)) is not None
-    ]
+    source_keyframes = _select_one_morph_per_frame(detections, close_morph)
 
     morph_keyframes: list[tuple[str, int, float]] = []
 
