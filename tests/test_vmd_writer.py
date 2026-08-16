@@ -67,34 +67,6 @@ def test_build_vmd_bytes_resets_vowel_morph_after_keyframe() -> None:
     ]
 
 
-def test_build_vmd_bytes_writes_close_morph_keyframes() -> None:
-    data = build_vmd_bytes(
-        [
-            VowelDetection(time_sec=0.0, vowel="A", confidence=0.75),
-            VowelDetection(time_sec=0.1, vowel="mouth_close", confidence=1.0),
-        ],
-        close_morph="mouth_close",
-    )
-
-    assert _morph_keyframes(data) == [
-        (VOWEL_TO_MORPH["A"], 0, 0.75),
-        (VOWEL_TO_MORPH["A"], 2, 0.0),
-        ("mouth_close", 3, 1.0),
-        ("mouth_close", 4, 0.0),
-    ]
-
-
-def test_build_vmd_bytes_resets_close_morph_after_keyframe() -> None:
-    data = build_vmd_bytes(
-        [VowelDetection(time_sec=0.1, vowel="口閉じ", confidence=1.0)]
-    )
-
-    assert _morph_keyframes(data) == [
-        ("口閉じ", 3, 1.0),
-        ("口閉じ", 4, 0.0),
-    ]
-
-
 def test_build_vmd_bytes_never_resets_before_next_frame() -> None:
     data = build_vmd_bytes(
         [
@@ -136,21 +108,6 @@ def test_build_vmd_bytes_keeps_first_vowel_when_confidence_ties() -> None:
     assert _morph_keyframes(data) == [
         (VOWEL_TO_MORPH["A"], 0, 0.75),
         (VOWEL_TO_MORPH["A"], 1, 0.0),
-    ]
-
-
-def test_build_vmd_bytes_uses_highest_confidence_close_morph_per_frame() -> None:
-    data = build_vmd_bytes(
-        [
-            VowelDetection(time_sec=0.0, vowel="A", confidence=0.75),
-            VowelDetection(time_sec=0.01, vowel="close", confidence=1.0),
-        ],
-        close_morph="close",
-    )
-
-    assert _morph_keyframes(data) == [
-        ("close", 0, 1.0),
-        ("close", 1, 0.0),
     ]
 
 

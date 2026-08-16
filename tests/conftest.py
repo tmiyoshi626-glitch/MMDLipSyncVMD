@@ -79,7 +79,6 @@ def _build_minimal_pmx(encoding: str = "utf-8") -> bytes:
         ("う", "U", 3, 2, 1),
         ("え", "E", 3, 3, 1),
         ("お", "O", 4, 8, 1),
-        ("口閉じ", "Close", 0, 0, 0),
     ]
     data.extend(struct.pack("<I", len(morphs)))
     for name_jp, name_en, panel, morph_type, offset_count in morphs:

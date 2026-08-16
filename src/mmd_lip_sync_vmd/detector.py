@@ -7,8 +7,6 @@ from typing import Any, Iterable
 
 
 VOWELS = ("A", "I", "U", "E", "O")
-DEFAULT_CLOSE_MORPH = "口閉じ"
-SILENCE_FRAME_RATE = 30
 DEFAULT_WHISPER_MODEL = "small"
 
 
@@ -220,48 +218,6 @@ def smooth_detections(
         )
 
     return smoothed
-
-
-def _frame_number(time_sec: float, frame_rate: int = SILENCE_FRAME_RATE) -> int:
-    return max(0, round(time_sec * frame_rate))
-
-
-def insert_silence_frames(
-    detections: list[VowelDetection],
-    *,
-    silence_threshold_sec: float = 0.12,
-    close_morph: str = DEFAULT_CLOSE_MORPH,
-    frame_rate: int = SILENCE_FRAME_RATE,
-) -> list[VowelDetection]:
-    if silence_threshold_sec < 0:
-        raise ValueError("silence_threshold_sec must be non-negative")
-    if frame_rate < 1:
-        raise ValueError("frame_rate must be at least 1")
-
-    if len(detections) < 2:
-        return list(detections)
-
-    ordered_detections = sorted(detections, key=lambda detection: detection.time_sec)
-    frames: list[VowelDetection] = [ordered_detections[0]]
-    for previous, current in zip(
-        ordered_detections,
-        ordered_detections[1:],
-    ):
-        if current.time_sec - previous.time_sec > silence_threshold_sec:
-            previous_frame = _frame_number(previous.time_sec, frame_rate)
-            current_frame = _frame_number(current.time_sec, frame_rate)
-            for frame_number in range(previous_frame + 1, current_frame):
-                frames.append(
-                    VowelDetection(
-                        time_sec=round(frame_number / frame_rate, 4),
-                        vowel=close_morph,
-                        confidence=1.0,
-                    )
-                )
-
-        frames.append(current)
-
-    return frames
 
 
 def merge_consecutive_vowels(

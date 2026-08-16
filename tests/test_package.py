@@ -9,7 +9,6 @@ from mmd_lip_sync_vmd.detector import (
     VowelDetection,
     detect_vowels,
     hiragana_to_vowels,
-    insert_silence_frames,
     merge_consecutive_vowels,
     smooth_detections,
     text_to_hiragana,
@@ -137,43 +136,6 @@ def test_detect_vowels_uses_whisper_word_timestamps(monkeypatch, tmp_path) -> No
     ]
 
 
-def test_insert_silence_frames_adds_close_morphs_between_detections() -> None:
-    detections = [
-        VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
-        VowelDetection(time_sec=0.2, vowel="I", confidence=0.8),
-    ]
-
-    with_silence = insert_silence_frames(
-        detections,
-        silence_threshold_sec=0.1,
-        close_morph="close",
-    )
-
-    assert with_silence == [
-        VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
-        VowelDetection(time_sec=0.0333, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.0667, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.1, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.1333, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.1667, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.2, vowel="I", confidence=0.8),
-    ]
-
-
-def test_insert_silence_frames_skips_short_gaps() -> None:
-    detections = [
-        VowelDetection(time_sec=0.0, vowel="A", confidence=0.9),
-        VowelDetection(time_sec=0.08, vowel="I", confidence=0.8),
-    ]
-
-    assert insert_silence_frames(detections, silence_threshold_sec=0.1) == detections
-
-
-def test_insert_silence_frames_rejects_negative_threshold() -> None:
-    with pytest.raises(ValueError, match="silence_threshold_sec"):
-        insert_silence_frames([], silence_threshold_sec=-0.1)
-
-
 def test_merge_consecutive_vowels_keeps_highest_confidence_in_run() -> None:
     detections = [
         VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
@@ -195,21 +157,6 @@ def test_merge_consecutive_vowels_preserves_separate_runs() -> None:
     ]
 
     assert merge_consecutive_vowels(detections) == detections
-
-
-def test_merge_consecutive_vowels_preserves_close_morph_runs() -> None:
-    detections = [
-        VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
-        VowelDetection(time_sec=0.1, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.2, vowel="close", confidence=0.8),
-        VowelDetection(time_sec=0.3, vowel="I", confidence=0.7),
-    ]
-
-    assert merge_consecutive_vowels(detections) == [
-        VowelDetection(time_sec=0.0, vowel="A", confidence=0.4),
-        VowelDetection(time_sec=0.1, vowel="close", confidence=1.0),
-        VowelDetection(time_sec=0.3, vowel="I", confidence=0.7),
-    ]
 
 
 def test_write_csv_uses_required_columns(tmp_path) -> None:

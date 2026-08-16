@@ -5,10 +5,8 @@ from pathlib import Path
 
 from mmd_lip_sync_vmd import __version__
 from mmd_lip_sync_vmd.detector import (
-    DEFAULT_CLOSE_MORPH,
     DEFAULT_WHISPER_MODEL,
     detect_vowels,
-    insert_silence_frames,
     merge_consecutive_vowels,
     smooth_detections,
     write_csv,
@@ -73,17 +71,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Centered smoothing window size. Use 1 to disable smoothing. Default: 3",
     )
-    parser.add_argument(
-        "--silence-threshold",
-        type=non_negative_float,
-        default=0.12,
-        help="Minimum gap in seconds before inserting mouth-close frames. Default: 0.12",
-    )
-    parser.add_argument(
-        "--close-morph",
-        default=DEFAULT_CLOSE_MORPH,
-        help=f"MMD morph name for generated mouth-close frames. Default: {DEFAULT_CLOSE_MORPH}",
-    )
     return parser
 
 
@@ -101,17 +88,11 @@ def main() -> int:
         compute_type=args.whisper_compute_type,
     )
     detections = smooth_detections(detections, window_size=args.smooth_window)
-    print("close_morph =", repr(args.close_morph))
-    detections = insert_silence_frames(
-        detections,
-        silence_threshold_sec=args.silence_threshold,
-        close_morph=args.close_morph,
-    )
     detections = merge_consecutive_vowels(detections)
 
     output_suffix = args.output_path.suffix.lower()
     if output_suffix == ".vmd":
-        write_vmd(detections, args.output_path, close_morph=args.close_morph)
+        write_vmd(detections, args.output_path)
     elif output_suffix == ".csv":
         for d in detections[:20]:
             print(d)

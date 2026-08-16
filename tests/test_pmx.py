@@ -32,14 +32,13 @@ def test_read_pmx_model(pmx_fixture):
     assert model.textures == ["body.png", "face.png"]
     assert model.materials == ["Body"]
     assert model.bone_count == 1
-    assert model.morphs == ["あ", "い", "う", "え", "お", "口閉じ"]
+    assert model.morphs == ["あ", "い", "う", "え", "お"]
     assert model.morph_details == [
         PMXMorph("あ", "A", 3, 0, 1),
         PMXMorph("い", "I", 3, 1, 1),
         PMXMorph("う", "U", 3, 2, 1),
         PMXMorph("え", "E", 3, 3, 1),
         PMXMorph("お", "O", 4, 8, 1),
-        PMXMorph("口閉じ", "Close", 0, 0, 0),
     ]
 
 
@@ -47,6 +46,5 @@ def test_read_pmx_model_reads_utf16_morph_names(pmx_utf16_fixture):
     model = read_pmx_model(pmx_utf16_fixture)
 
     assert model.header.encoding == "UTF-16"
-    assert model.morphs == ["あ", "い", "う", "え", "お", "口閉じ"]
+    assert model.morphs == ["あ", "い", "う", "え", "お"]
     assert model.morph_details[0] == PMXMorph("あ", "A", 3, 0, 1)
-    assert model.morph_details[-1] == PMXMorph("口閉じ", "Close", 0, 0, 0)

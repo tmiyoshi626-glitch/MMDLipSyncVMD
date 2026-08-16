@@ -3,10 +3,7 @@ from __future__ import annotations
 import struct
 from pathlib import Path
 
-from mmd_lip_sync_vmd.detector import (
-    DEFAULT_CLOSE_MORPH,
-    VowelDetection,
-)
+from mmd_lip_sync_vmd.detector import VowelDetection
 
 VMD_HEADER = "Vocaloid Motion Data 0002"
 VMD_FPS = 30
@@ -31,29 +28,22 @@ def _frame_number(time_sec: float) -> int:
     return max(0, round(time_sec * VMD_FPS))
 
 
-def _morph_name(
-    detection: VowelDetection,
-    close_morph: str,
-) -> str | None:
+def _morph_name(detection: VowelDetection) -> str | None:
     if detection.vowel in VOWEL_TO_MORPH:
         return VOWEL_TO_MORPH[detection.vowel]
-
-    if detection.vowel == close_morph:
-        return close_morph
 
     return None
 
 
 def _select_one_morph_per_frame(
     detections: list[VowelDetection],
-    close_morph: str,
 ) -> list[tuple[str, int, float]]:
     """Keep the highest-confidence mouth morph candidate for each VMD frame."""
 
     selected: list[tuple[str, int, float]] = []
     positions_by_frame: dict[int, int] = {}
     for detection in detections:
-        morph_name = _morph_name(detection, close_morph)
+        morph_name = _morph_name(detection)
         if morph_name is None:
             continue
 
@@ -73,7 +63,6 @@ def build_vmd_bytes(
     detections: list[VowelDetection],
     *,
     model_name: str = "MMDLipSyncVMD",
-    close_morph: str = DEFAULT_CLOSE_MORPH,
 ) -> bytes:
 
     data = bytearray()
@@ -85,7 +74,7 @@ def build_vmd_bytes(
     # ボーンキーフレーム数
     data.extend(struct.pack("<I", 0))
 
-    source_keyframes = _select_one_morph_per_frame(detections, close_morph)
+    source_keyframes = _select_one_morph_per_frame(detections)
 
     morph_keyframes: list[tuple[str, int, float]] = []
 
@@ -128,13 +117,11 @@ def write_vmd(
     vmd_path: str | Path,
     *,
     model_name: str = "MMDLipSyncVMD",
-    close_morph: str = DEFAULT_CLOSE_MORPH,
 ) -> None:
 
     Path(vmd_path).write_bytes(
         build_vmd_bytes(
             detections,
             model_name=model_name,
-            close_morph=close_morph,
         )
     )
