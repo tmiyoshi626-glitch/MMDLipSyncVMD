@@ -122,6 +122,77 @@ def _iter_whisper_items(segment: Any) -> Iterable[tuple[str, float, float, float
     )
 
 
+def _segment_word_vowels(
+    segment: Any,
+) -> list[VowelDetection]:
+    """Convert a Whisper segment using the full text for reading context."""
+    words = getattr(segment, "words", None)
+
+    if not words:
+        text = getattr(segment, "text", "")
+        start = float(getattr(segment, "start", 0.0))
+        end = float(getattr(segment, "end", 0.0))
+        return _time_aligned_vowels(
+            text=text,
+            start=start,
+            end=end,
+            confidence=None,
+        )
+
+    valid_words = []
+    for word in words:
+        text = getattr(word, "word", "")
+        start = float(getattr(word, "start", getattr(segment, "start", 0.0)))
+        end = float(getattr(word, "end", getattr(segment, "end", 0.0)))
+        confidence = getattr(word, "probability", None)
+
+        if not text.strip() or end <= start:
+            continue
+
+        valid_words.append((text, start, end, confidence))
+
+    if not valid_words:
+        return []
+
+    full_text = "".join(item[0] for item in valid_words)
+    full_vowels = text_to_vowels(full_text)
+
+    if not full_vowels:
+        return []
+
+    detections: list[VowelDetection] = []
+    vowel_index = 0
+
+    for text, start, end, confidence in valid_words:
+        # Use the word itself only to determine how many vowel slots it
+        # contributes. The actual vowel sequence comes from the full text
+        # so Japanese reading context is preserved.
+        word_vowel_count = len(text_to_vowels(text))
+
+        if word_vowel_count <= 0:
+            continue
+
+        word_vowels = full_vowels[vowel_index : vowel_index + word_vowel_count]
+        vowel_index += len(word_vowels)
+
+        if not word_vowels:
+            break
+
+        duration = end - start
+        step = duration / len(word_vowels)
+
+        for index, vowel in enumerate(word_vowels):
+            detections.append(
+                VowelDetection(
+                    time_sec=round(start + (index * step), 4),
+                    vowel=vowel,
+                    confidence=_clamp_confidence(confidence),
+                )
+            )
+
+    return detections
+
+
 def _is_audio_silent(wav_path: str | Path, start: float, end: float, threshold: float = 0.001) -> bool:
     import librosa
     import numpy as np
@@ -160,21 +231,54 @@ def detect_vowels(
     )
     detections: list[VowelDetection] = []
     for segment in segments:
-        for text, start, end, confidence in _iter_whisper_items(segment):
-            print(f"{start:.2f} {end:.2f} {text} {confidence}")
+        words = getattr(segment, "words", None)
 
-            
-            if _is_audio_silent(wav_path, start, end):
+        if words:
+            for word in words:
+                text = getattr(word, "word", "")
+                start = float(getattr(word, "start", getattr(segment, "start", 0.0)))
+                end = float(getattr(word, "end", getattr(segment, "end", 0.0)))
+                confidence = getattr(word, "probability", None)
+                print(f"{start:.2f} {end:.2f} {text} {confidence}")
+
+        segment_words = [
+            word
+            for word in (words or [])
+            if getattr(word, "word", "").strip()
+            and float(getattr(word, "end", getattr(segment, "end", 0.0)))
+            > float(getattr(word, "start", getattr(segment, "start", 0.0)))
+        ]
+
+        if segment_words:
+            if all(
+                _is_audio_silent(
+                    wav_path,
+                    float(getattr(word, "start", getattr(segment, "start", 0.0))),
+                    float(getattr(word, "end", getattr(segment, "end", 0.0))),
+                )
+                for word in segment_words
+            ):
                 continue
 
-            detections.extend(
-                _time_aligned_vowels(
-                    text=text,
-                    start=start,
-                    end=end,
-                    confidence=confidence,
-                )
+            detections.extend(_segment_word_vowels(segment))
+            continue
+
+        text = getattr(segment, "text", "")
+        start = float(getattr(segment, "start", 0.0))
+        end = float(getattr(segment, "end", 0.0))
+        print(f"{start:.2f} {end:.2f} {text} None")
+
+        if _is_audio_silent(wav_path, start, end):
+            continue
+
+        detections.extend(
+            _time_aligned_vowels(
+                text=text,
+                start=start,
+                end=end,
+                confidence=None,
             )
+        )
 
     return detections
 
