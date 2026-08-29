@@ -67,11 +67,20 @@ def test_build_vmd_bytes_resets_vowel_morph_after_keyframe() -> None:
     ]
 
 
-def test_build_vmd_bytes_never_resets_before_next_frame() -> None:
+def test_build_vmd_bytes_resets_at_end_sec() -> None:
     data = build_vmd_bytes(
         [
-            VowelDetection(time_sec=0.0, vowel="A", confidence=1.0),
-            VowelDetection(time_sec=1 / 30, vowel="I", confidence=1.0),
+            VowelDetection(
+                time_sec=0.0,
+                vowel="A",
+                confidence=1.0,
+                end_sec=1 / 30,
+            ),
+            VowelDetection(
+                time_sec=1 / 30,
+                vowel="I",
+                confidence=1.0,
+            ),
         ]
     )
 
@@ -81,6 +90,60 @@ def test_build_vmd_bytes_never_resets_before_next_frame() -> None:
         (VOWEL_TO_MORPH["I"], 1, 1.0),
         (VOWEL_TO_MORPH["I"], 2, 0.0),
     ]
+
+
+def test_build_vmd_bytes_uses_end_sec_for_multiple_vowels() -> None:
+    data = build_vmd_bytes(
+        [
+            VowelDetection(
+                time_sec=0.0,
+                vowel="A",
+                confidence=1.0,
+                end_sec=0.2,
+            ),
+            VowelDetection(
+                time_sec=0.2,
+                vowel="I",
+                confidence=1.0,
+                end_sec=0.4,
+            ),
+        ]
+    )
+
+    assert _morph_keyframes(data) == [
+        (VOWEL_TO_MORPH["A"], 0, 1.0),
+        (VOWEL_TO_MORPH["A"], 6, 0.0),
+        (VOWEL_TO_MORPH["I"], 6, 1.0),
+        (VOWEL_TO_MORPH["I"], 12, 0.0),
+    ]
+
+
+def test_build_vmd_bytes_keeps_mouth_morphs_exclusive_per_frame() -> None:
+    data = build_vmd_bytes(
+        [
+            VowelDetection(
+                time_sec=0.0,
+                vowel="A",
+                confidence=0.8,
+                end_sec=0.2,
+            ),
+            VowelDetection(
+                time_sec=0.01,
+                vowel="I",
+                confidence=0.9,
+                end_sec=0.21,
+            ),
+        ]
+    )
+
+    keyframes = _morph_keyframes(data)
+    active_by_frame: dict[int, int] = {}
+
+    for _name, frame, weight in keyframes:
+        if weight > 0.0:
+            active_by_frame[frame] = active_by_frame.get(frame, 0) + 1
+
+    assert all(count == 1 for count in active_by_frame.values())
 
 
 def test_build_vmd_bytes_uses_highest_confidence_vowel_per_frame() -> None:

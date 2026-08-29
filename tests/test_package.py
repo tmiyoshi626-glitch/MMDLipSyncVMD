@@ -58,9 +58,9 @@ def test_segment_word_vowels_uses_full_segment_context(monkeypatch) -> None:
     )
 
     assert detector._segment_word_vowels(segment) == [
-        VowelDetection(time_sec=5.42, vowel="U", confidence=0.99),
-        VowelDetection(time_sec=5.70, vowel="I", confidence=0.99),
-        VowelDetection(time_sec=5.88, vowel="U", confidence=0.99),
+        VowelDetection(time_sec=5.42, vowel="U", confidence=0.99, end_sec=5.70),
+        VowelDetection(time_sec=5.70, vowel="I", confidence=0.99, end_sec=5.88),
+        VowelDetection(time_sec=5.88, vowel="U", confidence=0.99, end_sec=6.12),
     ]
 
 
@@ -121,9 +121,9 @@ def test_detect_vowels_uses_segment_context_for_split_words(monkeypatch, tmp_pat
         device="cpu",
         compute_type="int8",
     ) == [
-        VowelDetection(time_sec=5.42, vowel="U", confidence=0.99),
-        VowelDetection(time_sec=5.70, vowel="I", confidence=0.99),
-        VowelDetection(time_sec=5.88, vowel="U", confidence=0.99),
+        VowelDetection(time_sec=5.42, vowel="U", confidence=0.99, end_sec=5.70),
+        VowelDetection(time_sec=5.70, vowel="I", confidence=0.99, end_sec=5.88),
+        VowelDetection(time_sec=5.88, vowel="U", confidence=0.99, end_sec=6.12),
     ]
 
 
@@ -208,8 +208,8 @@ def test_detect_vowels_uses_whisper_word_timestamps(monkeypatch, tmp_path) -> No
         device="cpu",
         compute_type="int8",
     ) == [
-        VowelDetection(time_sec=0.2, vowel="A", confidence=0.75),
-        VowelDetection(time_sec=0.5, vowel="I", confidence=0.75),
+        VowelDetection(time_sec=0.2, vowel="A", confidence=0.75, end_sec=0.5),
+        VowelDetection(time_sec=0.5, vowel="I", confidence=0.75, end_sec=0.8),
     ]
     assert transcribe_calls == [
         (
@@ -300,9 +300,9 @@ def test_segment_word_vowels_distributes_multiple_vowels_within_one_word(monkeyp
     )
 
     assert detector._segment_word_vowels(segment) == [
-        VowelDetection(time_sec=4.34, vowel="O", confidence=0.99),
-        VowelDetection(time_sec=4.5267, vowel="U", confidence=0.99),
-        VowelDetection(time_sec=4.7133, vowel="I", confidence=0.99),
+        VowelDetection(time_sec=4.34, vowel="O", confidence=0.99, end_sec=4.5267),
+        VowelDetection(time_sec=4.5267, vowel="U", confidence=0.99, end_sec=4.7133),
+        VowelDetection(time_sec=4.7133, vowel="I", confidence=0.99, end_sec=4.9),
     ]
 
 
@@ -328,8 +328,8 @@ def test_segment_word_vowels_keeps_vowels_inside_each_word(monkeypatch) -> None:
     )
 
     assert detector._segment_word_vowels(segment) == [
-        VowelDetection(time_sec=4.34, vowel="O", confidence=0.99),
-        VowelDetection(time_sec=4.5267, vowel="U", confidence=0.99),
-        VowelDetection(time_sec=4.7133, vowel="I", confidence=0.99),
-        VowelDetection(time_sec=4.90, vowel="O", confidence=0.99),
+        VowelDetection(time_sec=4.34, vowel="O", confidence=0.99, end_sec=4.5267),
+        VowelDetection(time_sec=4.5267, vowel="U", confidence=0.99, end_sec=4.7133),
+        VowelDetection(time_sec=4.7133, vowel="I", confidence=0.99, end_sec=4.9),
+        VowelDetection(time_sec=4.90, vowel="O", confidence=0.99, end_sec=5.42),
     ]

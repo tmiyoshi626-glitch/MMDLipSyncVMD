@@ -37,10 +37,10 @@ def _morph_name(detection: VowelDetection) -> str | None:
 
 def _select_one_morph_per_frame(
     detections: list[VowelDetection],
-) -> list[tuple[str, int, float]]:
+) -> list[tuple[str, int, float, float | None]]:
     """Keep the highest-confidence mouth morph candidate for each VMD frame."""
 
-    selected: list[tuple[str, int, float]] = []
+    selected: list[tuple[str, int, float, float | None]] = []
     positions_by_frame: dict[int, int] = {}
     for detection in detections:
         morph_name = _morph_name(detection)
@@ -48,7 +48,12 @@ def _select_one_morph_per_frame(
             continue
 
         frame_number = _frame_number(detection.time_sec)
-        candidate = (morph_name, frame_number, float(detection.confidence))
+        candidate = (
+            morph_name,
+            frame_number,
+            float(detection.confidence),
+            detection.end_sec,
+        )
         existing_position = positions_by_frame.get(frame_number)
         if existing_position is None:
             positions_by_frame[frame_number] = len(selected)
@@ -78,9 +83,15 @@ def build_vmd_bytes(
 
     morph_keyframes: list[tuple[str, int, float]] = []
 
-    for index, (morph_name, frame_number, weight) in enumerate(source_keyframes):
-
-        if index + 1 < len(source_keyframes):
+    for index, (morph_name, frame_number, weight, end_sec) in enumerate(
+        source_keyframes
+    ):
+        if end_sec is not None:
+            reset_frame_number = max(
+                frame_number + 1,
+                _frame_number(end_sec),
+            )
+        elif index + 1 < len(source_keyframes):
             next_frame_number = source_keyframes[index + 1][1]
 
             reset_frame_number = max(
@@ -95,7 +106,9 @@ def build_vmd_bytes(
                 (morph_name, frame_number, weight),
                 (morph_name, reset_frame_number, 0.0),
             ]
-        )    # モーフキーフレーム数
+        )
+
+    # モーフキーフレーム数
     data.extend(struct.pack("<I", len(morph_keyframes)))
 
     for morph_name, frame_number, weight in morph_keyframes:

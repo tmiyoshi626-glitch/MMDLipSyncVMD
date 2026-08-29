@@ -15,6 +15,7 @@ class VowelDetection:
     time_sec: float
     vowel: str
     confidence: float
+    end_sec: float | None = None
 
 
 HIRAGANA_VOWELS = {
@@ -97,6 +98,7 @@ def _time_aligned_vowels(
             time_sec=round(start + (index * step), 4),
             vowel=vowel,
             confidence=_clamp_confidence(confidence),
+            end_sec=round(start + ((index + 1) * step), 4),
         )
         for index, vowel in enumerate(vowels)
     ]
@@ -187,6 +189,7 @@ def _segment_word_vowels(
                     time_sec=round(start + (index * step), 4),
                     vowel=vowel,
                     confidence=_clamp_confidence(confidence),
+                    end_sec=round(start + ((index + 1) * step), 4),
                 )
             )
 
