@@ -321,6 +321,7 @@ def smooth_detections(
                 time_sec=detection.time_sec,
                 vowel=vowel,
                 confidence=round(confidence, 4),
+                end_sec=detection.end_sec,
             )
         )
 
